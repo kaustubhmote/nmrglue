@@ -11,26 +11,25 @@ doi:10.1007/s10858-012-9611-z.
 
 import numpy as np
 
-def _setzeroes(data, sampling):
+def _setzeroes(data, non_sampled_indices):
     """
     Sets the non-sampled points in the fid to zero
 
     Parameters
     ----------
     data : ndarray
-     non uniformly sampled dataset 
-    sampling : list
-     list of the indices that were sampled
+        non uniformly sampled dataset 
+    non_sampled_indices : list of integers
+        list of the indices that were not sampled 
+        this list can be generated from the _nonsampled_indices function
 
     Returns
     -------
     data : ndarray
-     non uniformly sampled dataset with non-sampled points set to zero
+        non uniformly sampled dataset with non-sampled points set to zero
 
     """
-    for i in range(data.size):
-        if i not in sampling:
-            data[i] = 0 + 1j*0
+    data[non_sampled_indices] = 0 + 1j*0
     return data
     
 def _nonsampled_indices(datasize, sampling):
@@ -40,14 +39,14 @@ def _nonsampled_indices(datasize, sampling):
     Parameters
     ----------
     datasize : int
-     size of the full dataset
+        size of the full dataset
     sampling : list
-     list of the indices that were sampled
+        list of the indices that were sampled
 
     Returns
     -------
     nonsampled_list : list
-     list of non-sampled indices
+        list of non-sampled indices
 
     """
     ns_list = []
@@ -65,14 +64,14 @@ def _threshold(data, threshold):
     Parameters
     ----------
     data : ndarray
-     FT dataset generated from the NUS dataset
+        FT dataset generated from the NUS dataset
     threshold : float
-     Percentage of max FT-coeff below which all wll be set to zero
+        Percentage of max FT-coeff below which all wll be set to zero
 
     Returns
     -------
     data : ndarray
-     FT dataset whose coefs below the threshold are all set to zero
+        FT dataset whose coefs below the threshold are all set to zero
 
     """
     data = data.copy()
@@ -149,7 +148,10 @@ def ist(data, sampling, size, maxiter=500, cutoff=0.001, threshold=0.98):
     fid_temp = fid_original.copy() 
 
     # initialize a array with zeros to add reconstructed data into
-    reconstructured_ft = np.zeros(fid_original.size)
+    reconstructured_ft = np.zeros(fid_original.size).astype('complex128')
+
+    # make list of non sampled points
+    nslist = _nonsampled_indices(datasize=size, sampling=sampling)
    
     # initialize a list to check for l2 norm convergence
     l2normlist = []
@@ -165,7 +167,7 @@ def ist(data, sampling, size, maxiter=500, cutoff=0.001, threshold=0.98):
         
         # iFT of the residual FT 
         fid_temp = np.fft.ifft(ft_temp - ft_temp_thr)
-        fid_temp = _setzeroes(fid_temp, sampling=sampling) 
+        fid_temp = _setzeroes(fid_temp, non_sampled_indices=nslist) 
 
         # add the thresholded FT to the dataset and break
         reconstructured_ft += ft_temp_thr
