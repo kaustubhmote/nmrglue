@@ -191,14 +191,10 @@ def poisson_nD(sampling=0.1, samples=[32, 32], tolerance=0.001,
                             x[0]**2 + x[1]**2 + x[2]**2 + x[3]**2) )                       
             
     
-    for i in range(500):
-        nusindices = poisson(size=len(index_list), sampling=sampling, 
+    nusindices = poisson(size=len(index_list), sampling=sampling, 
                         tolerance=tolerance, max_iter=max_iter)[0] 
 
-        nuslist = np.array(index_list[nusindices])
-            for j in range(samples[0]):
-                if j not in nuslist.T[0]
-
+    nuslist = np.array(index_list[nusindices])
 
 
     # TODO: check whether each index has atleast 1 sampling point
