@@ -90,7 +90,7 @@ def _makecompletefid(data, sampling, size):
     size : size of us fid
     """
     fid = np.zeros(size).astype('complex128')
-    for i in range(sampling.size):
+    for i in range(len(sampling)):
         fid[sampling[i]] = data[i].astype('complex128')
     return fid
 
