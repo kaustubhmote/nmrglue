@@ -1575,6 +1575,24 @@ bruker_dsp_table = {
     }
 }
 
+def get_grpdly(dic, data):
+    if 'acqus' not in dic:
+        raise ValueError("dictionary does not contain acqus parameters")
+
+    if 'DECIM' not in dic['acqus']:
+        raise ValueError("dictionary does not contain DECIM parameter")
+    decim = dic['acqus']['DECIM']
+
+    if 'DSPFVS' not in dic['acqus']:
+        raise ValueError("dictionary does not contain DSPFVS parameter")
+    dspfvs = dic['acqus']['DSPFVS']
+
+    if 'GRPDLY' not in dic['acqus']:
+        grpdly = 0
+    else:
+        grpdly = dic['acqus']['GRPDLY']
+
+    return grpdly
 
 def remove_digital_filter(dic, data, truncate=True, post_proc=False):
     """
@@ -1605,21 +1623,7 @@ def remove_digital_filter(dic, data, truncate=True, post_proc=False):
     rm_dig_filter : Remove digital filter by specifying parameters.
 
     """
-    if 'acqus' not in dic:
-        raise ValueError("dictionary does not contain acqus parameters")
-
-    if 'DECIM' not in dic['acqus']:
-        raise ValueError("dictionary does not contain DECIM parameter")
-    decim = dic['acqus']['DECIM']
-
-    if 'DSPFVS' not in dic['acqus']:
-        raise ValueError("dictionary does not contain DSPFVS parameter")
-    dspfvs = dic['acqus']['DSPFVS']
-
-    if 'GRPDLY' not in dic['acqus']:
-        grpdly = 0
-    else:
-        grpdly = dic['acqus']['GRPDLY']
+    grpdly = get_grpdly(dic, data)
 
     return rm_dig_filter(data, decim, dspfvs, grpdly, truncate, post_proc)
 
