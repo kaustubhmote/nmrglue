@@ -43,14 +43,10 @@ def _gen_poisson_schedule(size=256, sampling=0.5, fudge=1.0):
     # generate an array of lambda values to be used for generating gaps   
     lambdaarray = np.linspace(0, np.pi/2, samples)
 
-    # make an array of zeros to be used for gaps
-    gaps = np.zeros(samples, dtype='int')
-
-    # generate gaps : defauilts to sin function for lambda
-    for i in range(samples):
-        gaps[i] += np.random.poisson(fudge * np.sin(lambdaarray[i]), 1)
+    # generate gaps : defaults to sin function for lambda
+    gaps = np.random.poisson(fudge*np.sin(lambdaarray), samples)
    
-    # based on the gaps, generate liost of indices to be sampled
+    # based on the gaps, generate list of indices to be sampled
     nuslist=[0] 
     for i in range(1, len(gaps)):
         indexi = nuslist[i-1] + 1 + gaps[i]
