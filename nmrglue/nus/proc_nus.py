@@ -1,3 +1,5 @@
+# This Python file uses the following encoding: utf-8
+
 """
 Iterative Soft Thresholding for Processing NUS datasets
 REF: Application of Iterative Soft Thresholding for Fast
@@ -5,8 +7,8 @@ Reconstruction of NMR Data Non-uniformly Sampled with
 Multidimensional Poisson Gap Scheduling
 Sven G. Hyberts, Alexander G. Milbradt, Andreas B. Wagner, 
 Haribabu Arthanari and Gerhard Wagner*
-J Biomol NMR. 2012 52(4): 315–327. 
-doi:10.1007/s10858-012-9611-z.
+J Biomol NMR. 2012 52(4), 315–327.
+
 """
 
 import numpy as np
@@ -197,8 +199,6 @@ def ist(data, sampling, size, maxiter=500, cutoff=0.001, threshold=0.98):
 
 
 from scipy.fftpack import dst, idst, dct, idct
-from sklearn.linear_model import Lasso
-
 
 def _make_fourier_matrices(size, sampling):
     """
@@ -245,6 +245,7 @@ def _set_lasso(alpha, tol, max_iter):
         Models to be used in l1-norm fits
 
     """
+    from sklearn.linear_model import Lasso
     lassoc = Lasso(alpha=alpha, tol=tol, max_iter=max_iter)
     lassos = Lasso(alpha=alpha, tol=tol, max_iter=max_iter)
 
@@ -261,7 +262,6 @@ def l1norm_lasso(data, size, sampling, alpha, tol=10e-9, max_iter=20):
     Xhat = idct(lassoc.coef_) + 1j*idst(lassos.coef_)
     Yhat = np.fft.fftshift(np.fft.fft(Xhat))
         
-   
     return Yhat, Xhat       
         
         
