@@ -9,7 +9,7 @@ DOI: 10.1021/ja908004w
 
 import numpy as np
 
-def _gen_poisson_schedule(size=256, sampling=0.5, fudge=1.0):
+def _gen_poisson_schedule(l_array, samples):
     """
     Generates gaps sampled according to poisson sampling
                                                                                 
@@ -24,11 +24,10 @@ def _gen_poisson_schedule(size=256, sampling=0.5, fudge=1.0):
 
     Parameters
     ----------
-    size : int
-        Total size of the Nyquist grid for uniformly sampled data
-    sampling : float
-        Undersampling, number between 0 and 1
-    fudge :  an adjustable parameter to generate gaps
+    samples : np.ndarray
+        array of sampling points
+    l_array : np.ndarray
+        the weighting function for generating possion distribution
 
     Returns
     -------
@@ -37,21 +36,12 @@ def _gen_poisson_schedule(size=256, sampling=0.5, fudge=1.0):
 
     """
 
-    # number of samples to generate ~ number of gaps
-    samples = np.floor(size * sampling).astype(int) 
-
-    # generate an array of lambda values to be used for generating gaps   
-    lambdaarray = np.linspace(0, np.pi/2, samples)
-
     # generate gaps : defaults to sin function for lambda
-    gaps = np.random.poisson(fudge*np.sin(lambdaarray), samples)
+    gaps = np.random.poisson(l_array, samples)
    
     # based on the gaps, generate list of indices to be sampled
-    nuslist=[0] 
-    for i in range(1, len(gaps)):
-        indexi = nuslist[i-1] + 1 + gaps[i]
-        nuslist.append(indexi)
-    
+    nuslist = np.arange(samples) + np.cumsum(gaps)
+        
     return nuslist
 
 def _check_sampling(samples, nuslist):
@@ -70,8 +60,7 @@ def _check_sampling(samples, nuslist):
 
     return rval
 
-def poisson_1d(size=256, sampling=0.5, fudge=1.0, tolerance=0.02, max_iter=1000,
-        verbose=False):
+def poisson_1d(size=256, sampling=0.5, fudge=1.0, tolerance=0.02, max_iter=1000, verbosity=False, weight=1):
     """
     Generates gaps sampled according to poisson sampling that satisfies
     tolerance criteria
@@ -110,16 +99,22 @@ def poisson_1d(size=256, sampling=0.5, fudge=1.0, tolerance=0.02, max_iter=1000,
     
     # make an empty list to keep values of fudge    
     flist = []
-    
+
+    # number of samples to generate ~ number of gaps
+    samples = np.floor(size * sampling).astype(int) 
+ 
+    # generate an array of lambda values to be used for generating gaps   
+    l_array = np.sin(np.linspace(0, np.pi/2, samples))**weight
+
     for i in range(max_iter):
         
-        if verbose:
-            if i % 10 == 0:
+        if verbosity:
+            if i % 10*verbosity == 0:
                 print('Iteration', i, 'of', max_iter)
-        
-        # generate a schedule 
-        nlist = _gen_poisson_schedule(size=size, sampling=sampling, 
-                                      fudge=fudge)
+    
+        # generate a schedule   
+        nlist = _gen_poisson_schedule(l_array=fudge*l_array, 
+                                      samples=samples)
     
         # check whether it satisfies the criteria of tolerance
         if nlist[-1] > size-1:
@@ -133,7 +128,7 @@ def poisson_1d(size=256, sampling=0.5, fudge=1.0, tolerance=0.02, max_iter=1000,
 
     # Tell the user if the tolerance criteria was not satisfied
     if i < max_iter - 1:
-        if verbose:
+        if verbosity:
             print('Success! Done in', i, 'iterations')
         nlist_flag = True
         return nlist, flist, nlist_flag
@@ -146,7 +141,8 @@ def poisson_1d(size=256, sampling=0.5, fudge=1.0, tolerance=0.02, max_iter=1000,
 
 
 def poisson(sampling=0.1, samples=256, tolerance=0.001,
-               max_iter=500, verbose=False, check_nd_sampling=True):
+            max_iter=500, verbosity=False, check_nd_sampling=True, 
+            weight=1):
     """
     Poisson sampling for more 3 or more dimensions (no upper limit)
     for the number of dimensions
@@ -196,8 +192,12 @@ def poisson(sampling=0.1, samples=256, tolerance=0.001,
         key=lambda x: np.linalg.norm(np.array(x))))                       
             
     # get indices to sample on a the index list
-    nusindices = poisson_1d(size=len(index_list), sampling=sampling, 
-                        tolerance=tolerance, max_iter=max_iter, verbose=verbose) 
+    nusindices = poisson_1d(size=len(index_list), 
+                            sampling=sampling, 
+                            tolerance=tolerance, 
+                            max_iter=max_iter, 
+                            verbosity=verbosity,
+                            weight=weight) 
 
     # return the indices that need to be sampled
     nuslist = np.array([index_list[coord] for coord in nusindices[0]])
@@ -212,9 +212,12 @@ def poisson(sampling=0.1, samples=256, tolerance=0.001,
 
     if nd_sampling:
         return nuslist 
-    else:
+    elif check_nd_sampling:
         print('N-dimensional sampling error. Restarting ...')
         return poisson(sampling, samples, tolerance,
-                               max_iter, verbose)
+                               max_iter, verbosity)
+    else:
+        print('N-dimensional sampling error. Ignored')
+        return nuslist
 
 
