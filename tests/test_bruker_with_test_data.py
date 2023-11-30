@@ -210,3 +210,27 @@ def test_write_pdata_2d():
                                      'pdata', '1'), read_acqus=False)
     write_readback_pdata(dic=dic, data=data)
     write_readback_pdata(dic=dic, data=data, pdata_folder=90)
+
+
+def test_read_nuslist():
+    """ reading nuslist """
+    with open("tmp_nuslist", "w") as f:
+        f.write("""0 0\n10 20\n50 21\n9 8\n7 8\n20 20""")
+
+    nuslist = ng.bruker.read_nuslist(fname="tmp_nuslist")
+    assert nuslist == [(0, 0), (10, 20), (50, 21), (9, 8), (7, 8), (20, 20)]
+
+    os.remove("tmp_nuslist")
+
+
+def test_read_vdlist():
+    """ reading vdlist """
+    with open("tmp_vdlist", "w") as f:
+        f.write("""1n\n10n\n50u\n20u\n30m\n50m\n1\n2\n""")
+
+    vdlist = ng.bruker.read_vdlist(".", fname="tmp_vdlist")
+    true_vdlist = [1e-9, 10e-9, 50e-6, 20e-6, 30e-3, 50e-3, 1.0, 2.0] 
+    for i, j in zip(vdlist, true_vdlist):
+        assert i -j < 1e-10
+
+    os.remove("tmp_vdlist")

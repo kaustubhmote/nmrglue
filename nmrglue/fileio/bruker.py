@@ -111,8 +111,8 @@ def add_axis_to_udic(udic, dic, udim, strip_fake):
     """
     # This could still use some work
     b_dim = udic['ndim'] - udim - 1  # last dim
-    acq_file = "acqu" + str(b_dim + 1) + "s"
-    pro_file = "proc" + str(b_dim + 1) + "s"
+    acq_file = f"acqu{b_dim + 1}s"
+    pro_file = f"proc{b_dim + 1}s"
 
     # Because they're inconsistent,..
     if acq_file == "acqu1s":
@@ -428,8 +428,20 @@ def read(dir=".", bin_file=None, acqus_files=None, pprog_file=None, shape=None,
 
     # read the binary file
     f = os.path.join(dir, bin_file)
-    null, data = read_binary(f, shape=shape, cplex=cplex, big=big,
+    _, data = read_binary(f, shape=shape, cplex=cplex, big=big,
                              isfloat=isfloat)
+
+    try:
+        if dic['acqus']['FnTYPE'] == 2: # non-uniformly sampled data
+            try:
+                dic['nuslist'] = read_nuslist(dir)
+            except FileNotFoundError:
+                warn("NUS data detected, but nuslist was not found")
+    except KeyError:
+        # old datasets do not have the FnTYPE parameter in acqus files.
+        # also fails silently when acqus file is absent.
+        pass
+
     return dic, data
 
 
@@ -537,8 +549,20 @@ def read_lowmem(dir=".", bin_file=None, acqus_files=None, pprog_file=None,
 
     # read the binary file
     f = os.path.join(dir, bin_file)
-    null, data = read_binary_lowmem(f, shape=shape, cplex=cplex, big=big,
+    _, data = read_binary_lowmem(f, shape=shape, cplex=cplex, big=big,
                                     isfloat=isfloat)
+
+    try:
+        if dic['acqus']['FnTYPE'] == 2: # non-uniformly sampled data
+            try:
+                dic['nuslist'] = read_nuslist(dir)
+            except FileNotFoundError:
+                warn("NUS data detected, but nuslist was not found")
+    except KeyError:
+        # old datasets do not have the FnTYPE parameter in acqus files.
+        # also fails silently when acqus file is absent.
+        pass
+
     return dic, data
 
 
@@ -1477,7 +1501,7 @@ def reorder_submatrix(data, shape, submatrix_shape, reverse=False):
         return data
 
     sub_per_dim = [int(i / j) for i, j in zip(shape, submatrix_shape)]
-    nsubs = np.product(sub_per_dim)
+    nsubs = np.prod(sub_per_dim)
 
     if reverse:
         rdata = np.empty([nsubs] + list(submatrix_shape))
@@ -1546,7 +1570,7 @@ def read_binary(filename, shape=(1), cplex=True, big=True, isfloat=False):
         return dic, data.reshape(shape)
 
     except ValueError:
-        warn(str(data.shape) + "cannot be shaped into" + str(shape))
+        warn(f"{data.shape} cannot be shaped into {shape}")
         return dic, data
 
 
@@ -2169,9 +2193,9 @@ def read_jcamp(filename, encoding=locale.getpreferredencoding()):
                     key, value = parse_jcamp_line(line, f)
                     dic[key] = value
                 except:
-                    warn("Unable to correctly parse line:" + line)
+                    warn(f"Unable to correctly parse line: {line}")
             else:
-                warn("Extraneous line:" + line)
+                warn(f"Extraneous line: {line}")
 
     return dic
 
@@ -2192,7 +2216,7 @@ def parse_jcamp_line(line, f):
 
     if "<" in text:   # string
         while ">" not in text:      # grab additional text until ">" in string
-            text = text + "\n" + f.readline().rstrip()
+            text += "\n" + f.readline().rstrip()
         value = text[1:-1]  # remove < and >
 
     elif "(" in text:   # array
@@ -2317,24 +2341,24 @@ def write_jcamp_pair(f, key, value):
     """
 
     # the parameter name and such
-    line = "##$" + key + "= "
+    line = f"##${key}= "
 
-    # need to be type not isinstance since isinstance(bool, int) == True
-    if type(value) == float or type(value) == int:  # simple numbers
-        line = line + repr(value)
-
-    elif isinstance(value, str):    # string
-        line = line + "<" + value + ">"
-
-    elif type(value) == bool:   # yes or no
+    # need to be checked first since isinstance(bool, int) == True
+    if isinstance(value, bool):  # yes or no
         if value:
-            line = line + "yes"
+            line += "yes"
         else:
-            line = line + "no"
+            line += "no"
+
+    elif isinstance(value, (float, int)):  # simple numbers
+        line += repr(value)
+
+    elif isinstance(value, str):  # string
+        line += f"<{value}>"
 
     elif isinstance(value, list):
         # write out the current line
-        line = line + "(0.." + repr(len(value) - 1) + ")"
+        line += f"(0..{len(value) - 1!r})"
         f.write(line)
         f.write("\n")
         line = ""
@@ -2349,7 +2373,7 @@ def write_jcamp_pair(f, key, value):
                 line = ""
 
             if isinstance(v, str):
-                to_add = "<" + v + ">"
+                to_add = f"<{v}>"
             else:
                 to_add = repr(v)
 
@@ -2359,7 +2383,7 @@ def write_jcamp_pair(f, key, value):
                 line = ""
 
             if line != "":
-                line = line + to_add + " "
+                line += to_add + " "
             else:
                 line = to_add + " "
 
@@ -2558,20 +2582,20 @@ def write_pprog(filename, dic, overwrite=False):
 
     # write our the variables
     for k, v in dic["var"].items():
-        f.write("\"" + k + "=" + v + "\"\n")
+        f.write(f'"{k}={v}"\n')
 
     # write out each loop
     for i, steps in enumerate(dic["loop"]):
 
         # write our the increments
         for v in dic["incr"][i]:
-            f.write("d01 id" + str(v) + "\n")
+            f.write(f"d01 id{v}\n")
 
         # write out the phases
         for v, w in zip(dic["phase"][i], dic["ph_extra"][i]):
-            f.write("d01 ip" + str(v) + " " + str(w) + "\n")
+            f.write(f"d01 ip{v} {w}\n")
 
-        f.write("lo to 0 times " + str(steps) + "\n")
+        f.write(f"lo to 0 times {steps}\n")
 
     # close the file
     f.close()
@@ -2581,3 +2605,105 @@ def _merge_dict(a, b):
     c = a.copy()
     c.update(b)
     return c
+
+
+def read_nuslist(dirc=".", fname="nuslist"):
+    """
+    Reads nuslist in bruker format
+
+    Parameters
+    ----------
+    dirc : str, optional
+        directory for the data, by default "."
+    fname : str, optional
+        name of the file that has the nuslist, by default 'nuslist'
+
+    Returns
+    -------
+    converted_nuslist: list of n-tuples
+        nuslist
+
+    Raises
+    ------
+    OSError
+        if directory is absent
+
+    FileNotFoundError
+        if file is absent
+
+    """
+    if not os.path.isdir(dirc):
+        raise OSError(f"directory {dirc} does not exist")
+
+    if fname is None:
+        fname = "nuslist"
+
+    try:
+        with open(os.path.join(dirc, fname)) as f:
+            nuslist = f.read().splitlines()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"nuslist file ({fname}) not found in directory {dirc}")
+
+    converted_nuslist = []
+    for line in nuslist:
+        numbers = tuple(int(i) for i in line.split())
+        converted_nuslist.append(numbers)
+
+    return converted_nuslist
+
+# Read Bruker VD delays list
+
+
+def read_vdlist(dirc, fname='vdlist'):
+    """
+    This function reads a Bruker 'vdlist' file from a specified directory and
+    returns a list of variable delay (vd) times in seconds.
+    The 'vdlist' file contains delay times used in NMR relaxation
+    experiments, typically ns, ms, ms, or s. This function converts all delays
+    to seconds for consistency.
+
+    Parameters
+    ----------
+    dirc : str
+        The directory path where the 'vdlist' file is located.
+    fname : str
+        name of the vdlist file, by default 'vdlist'
+
+    Returns
+    -------
+    vdlist : list
+        A list of delay times in seconds. Each delay time is a float.
+
+    Raises
+    ------
+    FileNotFoundError 
+        if the vdlist file is absent
+
+    """
+    # Check that vdlist file exists
+    vdlist_file = os.path.join(dirc, fname)
+    if os.path.isfile(vdlist_file) is not True:
+        raise FileNotFoundError(
+            f"The 'vdlist' file ({fname}) was not found in the directory: {dirc}. Please ensure"
+            " that you have provided the 'acqu' directory, not the 'pdata' directory."
+        )
+        
+    # Read vdlist file
+    with open(vdlist_file, 'r') as f:
+        vdlist = f.readlines()
+        for i in range(len(vdlist)):
+            if 'n' in vdlist[i]:
+                vdlist[i] = vdlist[i].replace('n', 'e-9')
+            elif 'u' in vdlist[i]:
+                vdlist[i] = vdlist[i].replace('u', 'e-6')
+            elif 'm' in vdlist[i]:
+                vdlist[i] = vdlist[i].replace('m', 'e-3')
+            elif 's' in vdlist[i]:
+                vdlist[i] = vdlist[i].replace('s', 'e0')
+            else:
+                vdlist[i] = vdlist[i].replace('\n', '')
+
+    # Convert to floats
+    vdlist = [float(i) for i in vdlist]
+
+    return vdlist

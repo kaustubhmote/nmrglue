@@ -102,7 +102,7 @@ Basic Utilities
     interleave_complex
     unpack_complex
     c2ri
-    seperate_interleaved
+    separate_interleaved
     pack_complex
     decode_States
     ri2rr
@@ -186,3 +186,12 @@ are included here for completeness.
     std_flt
     sum_flt
     largest_power_of_2
+
+
+Other processing functions
+--------------------------
+
+.. autosummary::
+    :toctree: generated/
+
+    expand_nus

@@ -326,13 +326,13 @@ def pack_table(locations, cluster_ids=None, scales=None, amps=None,
     ndim = len(locations[0])
     anames = axis_names[-ndim:]
 
-    dt = [(a + "_AXIS", float) for a in anames]
+    dt = [(f"{a}_AXIS", float) for a in anames]
     rec = np.rec.array(locations, dtype=dt)
 
     if cluster_ids is not None:
         rec = table.append_column(rec, cluster_ids, 'cID', 'int')
     if scales is not None:
-        names = [a + "_LW" for a in anames]
+        names = [f"{a}_LW" for a in anames]
         for n, c in zip(names, np.array(scales).T):
             rec = table.append_column(rec, c, n, 'float')
     if amps is not None:
@@ -367,7 +367,7 @@ def guess_params_slice(data, location, seg_slice, ls_classes):
 
     """
     # find the rectangular region around the segment
-    region = data[slice(*seg_slice)]
+    region = data[seg_slice]
     edge = [s.start for s in seg_slice]
     rlocation = [l - s.start for l, s in zip(location, seg_slice)]
 
