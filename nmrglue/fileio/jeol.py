@@ -34,7 +34,7 @@ def read(fname):
         buffer = f.read()
 
     dic = parse_jeol(buffer)
-    data = read_data(dic, buffer)
+    data = read_bin_data(dic, buffer)
     return dic, data
 
 
@@ -202,7 +202,7 @@ def read_parameters(buffer, param_start, endianness):
     return buffer, params
 
 
-def read_data(dic, buffer):
+def read_bin_data(dic, buffer):
     buffer = IOBuffer(buffer, conversion_table=ConversionTable)
 
     if dic["header"]["endian"] == "little_endian":
@@ -220,6 +220,37 @@ def read_data(dic, buffer):
     return np.array(data)
 
 
+def ndims(dic):
+    
+    return sum(bool(i) for i in dic['header']['data_axis_type'])
+
+def nsections(dic):
+    
+    return 2 ** num_complex_dims(dic)
+
+def split_sections(dic, data):
+    
+    sections = data.reshape(nsections(dic), -1)
+    return dic, [i for i in sections]
+
+def submatrix_shape(dic):
+
+    submatrix_edge = ConversionTable.submatrix_edge[dic['header']['data_format']]
+    return [submatrix_edge] * ndims(dic)
+
+def reorder_submatrix(dic, section):
+    shape = tuple([-1, *submatrix_shape(dic)])
+    section = section.reshape(shape)
+    
+    section = np.hstack(tuple(i for i in section))
+
+
+    return  section
+    
+
+def num_complex_dims(dic):
+    complex_dims = ['complex' in i for i in dic['header']['data_axis_type'] if i] 
+    return sum(complex_dims)
 
 class IOBuffer:
     def __init__(self, buffer, conversion_table, endian=None):
