@@ -10,8 +10,9 @@ Jeol data format information
 """
 
 import struct
-
 import numpy as np
+
+from .bruker import reorder_submatrix
 
 
 def read(fname):
@@ -20,7 +21,7 @@ def read(fname):
 
     Parameters
     ----------
-    fname : str
+    fname : str, path object
         filepath
 
     Returns
@@ -28,14 +29,75 @@ def read(fname):
     dict, np.ndarray
         A dictionary with data informations, parameters, and an array of
         NMR data
-    """
 
+    """
     with open(fname, "rb") as f:
         buffer = f.read()
 
     dic = parse_jeol(buffer)
     data = read_bin_data(dic, buffer)
+    data = reorganize(dic, data)
+
     return dic, data
+
+def reorganize(dic, bin_data):
+    """
+    A Wrapper functions around reorganization for data of different dimensions
+
+    """
+    dim = ndims(dic)
+    if dim == 1:
+        return reorganize_1d(dic, bin_data)
+    elif dim == 2:
+        return reorganize_2d(dic, bin_data)
+    elif dim > 2:
+        raise NotImplementedError("Higher dimensions have not been tested yet")
+
+
+def reorganize_1d(dic, bin_data):
+    """
+    Reorganize 1d data into correct numpy array
+
+    """
+    return 1
+
+
+def reorganize_2d(dic, bin_data):
+    """
+    Reorganize 2d data into corectly ordered numpy array
+
+    """
+
+    dic, sections = split_sections(dic, bin_data)
+    _out_shape = dic['header']['data_points'][:2][::-1]
+
+    sections = [reorder_submatrix(data=s, shape=_out_shape, submatrix_shape=submatrix_shape(dic)) for s in sections]
+
+    complexity = [2 if i == 'complex' else 0 for i in dic['header']["data_axis_type"][:2]]
+
+    # for i in (0, 1):
+    print(_out_shape, complexity)
+
+    return
+
+
+
+def get_data_shape(dic):
+    shape = dic['header']['data_points']
+    shape = [i for i in shape if i > 1]
+    shape = shape[::-1]
+
+    return shape
+
+
+def get_data_types(dic):
+    shape = get_data_shape(dic)
+    types = dic['header']['data_axis_type'][:len(shape)]
+    types = [2 if t == 'complex' else 1 for t in types]
+
+    return types
+
+
 
 
 def parse_jeol(buffer):
@@ -136,7 +198,6 @@ def read_header(buffer):
 
 
 def read_parameters(buffer, param_start, endianness):
-
     t = buffer.conversion_table
 
     if endianness == "little_endian":
@@ -221,36 +282,36 @@ def read_bin_data(dic, buffer):
 
 
 def ndims(dic):
-    
-    return sum(bool(i) for i in dic['header']['data_axis_type'])
+    return sum(bool(i) for i in dic["header"]["data_axis_type"])
+
 
 def nsections(dic):
-    
     return 2 ** num_complex_dims(dic)
 
+
 def split_sections(dic, data):
-    
     sections = data.reshape(nsections(dic), -1)
     return dic, [i for i in sections]
 
-def submatrix_shape(dic):
 
-    submatrix_edge = ConversionTable.submatrix_edge[dic['header']['data_format']]
+def submatrix_shape(dic):
+    submatrix_edge = ConversionTable.submatrix_edge[dic["header"]["data_format"]]
     return [submatrix_edge] * ndims(dic)
 
-def reorder_submatrix(dic, section):
-    shape = tuple([-1, *submatrix_shape(dic)])
-    section = section.reshape(shape)
-    
-    section = np.hstack(tuple(i for i in section))
-
-
-    return  section
-    
 
 def num_complex_dims(dic):
-    complex_dims = ['complex' in i for i in dic['header']['data_axis_type'] if i] 
+    complex_dims = ["complex" in i for i in dic["header"]["data_axis_type"] if i]
     return sum(complex_dims)
+
+def num_real_dims(dic):
+    real_dims = ["real" in i for i in dic["header"]["data_axis_type"] if i]
+    return sum(real_dims)
+
+
+
+def reorganize_sections(sections):
+    pass
+
 
 class IOBuffer:
     def __init__(self, buffer, conversion_table, endian=None):
@@ -317,7 +378,7 @@ class IOBuffer:
         value = struct.unpack_from(f"{self.e}i", self.buffer, self.position)
         self.position += 4
         return value[0]
-    
+
     def read_float32(self):
         value = struct.unpack_from(f"{self.e}f", self.buffer, self.position)
         self.position += 4
